@@ -211,8 +211,57 @@ describe("ReachBell", () => {
         expect(() => {
           pending = call();
         }).not.toThrow();
-        await expect(pending).rejects.toBeInstanceOf(TypeError);
+        await expect(pending).rejects.toBeInstanceOf(ReachBellError);
       }
+    });
+
+    it("rejects invalid arguments with ReachBellError before sending", async () => {
+      const m = mockFetch();
+      const rb = client(m.fn);
+      const cases: Array<[() => Promise<unknown>, RegExp]> = [
+        [() => rb.campaigns.send(null as never), /^ReachBell: campaigns\.send expects params to be an object, got null$/],
+        [() => rb.campaigns.send({ name: "x" } as never), /campaigns\.send expects params\.content to be an object, got undefined/],
+        [() => rb.transactional.send(undefined as never), /transactional\.send expects params to be an object, got undefined/],
+        [() => rb.transactional.email([] as never), /transactional\.email expects params to be an object, got an array/],
+        [() => rb.transactional.sms(null as never), /transactional\.sms/],
+        [() => rb.transactional.whatsapp(null as never), /transactional\.whatsapp/],
+        [() => rb.events.track(null as never), /events\.track expects event to be an object, got null/],
+        [() => rb.events.trackBatch(undefined as never), /events\.trackBatch expects events to be an array, got undefined/],
+        [() => rb.events.trackBatch([{ name: "e", externalId: "u" }, null] as never), /events\.trackBatch expects events\[1\] to be an object, got null/],
+        [() => rb.subscribers.identify(null as never), /subscribers\.identify/],
+        [() => rb.subscribers.tag(undefined as never), /subscribers\.tag/],
+        [() => rb.subscribers.untag(undefined as never), /subscribers\.untag/],
+        [() => rb.subscribers.delete(undefined as never), /subscribers\.delete expects token to be a non-empty string, got undefined/],
+        [() => rb.subscribers.delete("  "), /got an empty string/],
+        [() => rb.contacts.upsertEmail(null as never), /contacts\.upsertEmail/],
+        [() => rb.contacts.unsubscribeEmail(42 as never), /contacts\.unsubscribeEmail expects email to be a non-empty string, got number/],
+        [() => rb.request("GET", undefined as never), /request expects path to be a string/],
+      ];
+      for (const [call, message] of cases) {
+        const err = (await call().catch((e: unknown) => e)) as ReachBellError;
+        expect(err).toBeInstanceOf(ReachBellError);
+        expect(err).not.toBeInstanceOf(ReachBellBatchError);
+        expect(err.status).toBe(0);
+        expect(err.body).toBeNull();
+        expect(err.message).toMatch(message);
+      }
+      expect(m.fn).not.toHaveBeenCalled();
+    });
+
+    it("validates timeoutMs", async () => {
+      for (const timeoutMs of [0, -1, Number.NaN, Number.POSITIVE_INFINITY, "15000" as never]) {
+        expect(() => new ReachBell({ apiKey: "rb_secret_x", timeoutMs })).toThrow(/timeoutMs must be a finite number of milliseconds greater than 0/);
+      }
+      expect(() => new ReachBell({ apiKey: "rb_secret_x", timeoutMs: 0 })).toThrow(RangeError);
+      expect(() => new ReachBell({ apiKey: "rb_secret_x", timeoutMs: 1.5, fetch: mockFetch().fn })).not.toThrow();
+
+      const m = mockFetch();
+      const err = (await client(m.fn).request("GET", "/x", undefined, { timeoutMs: -5 }).catch((e: unknown) => e)) as ReachBellError;
+      expect(err).toBeInstanceOf(ReachBellError);
+      expect(err.message).toMatch(/timeoutMs to be a finite number of milliseconds greater than 0, got -5/);
+      expect(m.fn).not.toHaveBeenCalled();
+      await client(m.fn).request("GET", "/x", undefined, { timeoutMs: 2500 });
+      expect(m.fn).toHaveBeenCalledOnce();
     });
 
     it("reports an unserialisable body as a serialisation error, not a network failure", async () => {

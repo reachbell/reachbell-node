@@ -4,11 +4,13 @@ import type { HttpConfig } from "../helpers/http";
 import { send } from "../helpers/http";
 import type { ApiResult, EventParams, RequestOptions } from "../types";
 import { compact } from "../utils";
+import { requireArray, requireObject } from "../helpers/validate";
 
 export class Events {
   constructor(private readonly config: HttpConfig) {}
 
   async track(event: EventParams, options?: RequestOptions): Promise<ApiResult> {
+    requireObject(event, "events.track", "event");
     return send(this.config, "POST", "/events", compact({ ...event }), options);
   }
 
@@ -19,6 +21,9 @@ export class Events {
    * chunks that were already accepted.
    */
   async trackBatch(events: EventParams[], options?: RequestOptions): Promise<ApiResult[]> {
+    // Validate every event up front so a bad entry fails before any chunk is sent.
+    requireArray(events, "events.trackBatch", "events");
+    events.forEach((event, i) => requireObject(event, "events.trackBatch", `events[${i}]`));
     const results: ApiResult[] = [];
     let sent = 0;
     for (let i = 0; i < events.length; i += MAX_EVENT_BATCH) {

@@ -2,6 +2,7 @@ import { SDK_VERSION } from "../constants";
 import type { FetchLike, HttpMethod, RequestOptions } from "../types";
 import { appendQuery, describeError, mergeHeaders, messageFrom, parseBody } from "../utils";
 import { ReachBellError } from "./error";
+import { describe, invalidArgument, isValidTimeout } from "./validate";
 
 export interface HttpConfig {
   apiKey: string;
@@ -18,6 +19,11 @@ export async function send<T>(
   body?: unknown,
   options: RequestOptions = {},
 ): Promise<T> {
+  if (typeof path !== "string") throw invalidArgument("request", `expects path to be a string, got ${describe(path)}`);
+  const timeoutMs = options.timeoutMs ?? config.timeoutMs;
+  if (!isValidTimeout(timeoutMs)) {
+    throw invalidArgument("request", `expects timeoutMs to be a finite number of milliseconds greater than 0, got ${String(timeoutMs)}`);
+  }
   const url = appendQuery(`${config.baseUrl}${path.startsWith("/") ? path : `/${path}`}`, options.query);
 
   // Serialise before the network try so a bad body (BigInt, circular) is not
@@ -57,7 +63,7 @@ export async function send<T>(
       method,
       headers,
       body: encoded,
-      signal: AbortSignal.timeout(options.timeoutMs ?? config.timeoutMs),
+      signal: AbortSignal.timeout(Math.ceil(timeoutMs)),
     });
     // Reading the body is still covered by the timeout signal and can fail
     // mid-stream, so keep it inside the same try.

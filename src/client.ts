@@ -8,6 +8,7 @@ import { Subscribers } from "./resources/subscribers";
 import { Transactional } from "./resources/transactional";
 import type { HttpMethod, ReachBellOptions, RequestOptions } from "./types";
 import { nonBlank, trimSlash } from "./utils";
+import { isValidTimeout } from "./helpers/validate";
 
 export class ReachBell {
   readonly transactional: Transactional;
@@ -26,10 +27,15 @@ export class ReachBell {
     const fetchImpl = options.fetch ?? globalThis.fetch;
     if (typeof fetchImpl !== "function") throw new TypeError("ReachBell: fetch is not available; use Node 18+ or pass options.fetch");
 
+    const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    if (!isValidTimeout(timeoutMs)) {
+      throw new RangeError(`ReachBell: timeoutMs must be a finite number of milliseconds greater than 0, got ${String(timeoutMs)}`);
+    }
+
     this.config = {
       apiKey,
       baseUrl: trimSlash(nonBlank(options.baseUrl) ?? nonBlank(readEnv("REACHBELL_API_URL")) ?? DEFAULT_BASE_URL),
-      timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+      timeoutMs,
       fetch: fetchImpl.bind(globalThis),
       headers: options.headers ?? {},
     };
