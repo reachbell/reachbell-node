@@ -142,6 +142,19 @@ describe("ReachBell", () => {
     expect(err.message).toMatch(/timed out/);
   });
 
+  it("reports a timeout while reading the body as status 0", async () => {
+    const fetch = vi.fn(async () => {
+      const response = new Response("{}", { status: 200 });
+      vi.spyOn(response, "text").mockRejectedValue(new DOMException("The operation timed out.", "TimeoutError"));
+      return response;
+    });
+    const rb = new ReachBell({ apiKey: "rb_secret_x", fetch });
+    const err = (await rb.events.track({ name: "x" }).catch((e: unknown) => e)) as ReachBellError;
+    expect(err).toBeInstanceOf(ReachBellError);
+    expect(err.status).toBe(0);
+    expect(err.message).toMatch(/timed out/);
+  });
+
   it("passes query strings through request()", async () => {
     const m = mockFetch(200, "");
     const r = await client(m.fn).request("GET", "/billing/plans", undefined, { query: { currency: "USD", skip: undefined } });

@@ -29,6 +29,7 @@ export async function send<T>(
   if (body !== undefined) headers["content-type"] = "application/json";
 
   let response: Response;
+  let text: string;
   try {
     response = await config.fetch(url, {
       method,
@@ -36,6 +37,9 @@ export async function send<T>(
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(options.timeoutMs ?? config.timeoutMs),
     });
+    // Reading the body is still covered by the timeout signal and can fail
+    // mid-stream, so keep it inside the same try.
+    text = await response.text();
   } catch (err) {
     const reason = err instanceof Error ? err : new Error(String(err));
     const timedOut = reason.name === "TimeoutError" || reason.name === "AbortError";
@@ -46,7 +50,7 @@ export async function send<T>(
     );
   }
 
-  const parsed = parseBody(await response.text());
+  const parsed = parseBody(text);
   if (!response.ok) {
     throw new ReachBellError(messageFrom(parsed, `ReachBell returned ${response.status}`), response.status, parsed);
   }
