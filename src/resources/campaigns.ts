@@ -6,7 +6,7 @@ import { compact } from "../utils";
 export class Campaigns {
   constructor(private readonly config: HttpConfig) {}
 
-  send(params: CampaignParams, options?: RequestOptions): Promise<ApiResult> {
+  async send(params: CampaignParams, options?: RequestOptions): Promise<ApiResult> {
     const scheduledAt = params.scheduledAt instanceof Date ? params.scheduledAt.toISOString() : params.scheduledAt;
     const payload = compact({
       ...params,

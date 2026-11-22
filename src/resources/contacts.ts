@@ -6,11 +6,11 @@ import { compact } from "../utils";
 export class Contacts {
   constructor(private readonly config: HttpConfig) {}
 
-  upsertEmail(params: EmailContactParams, options?: RequestOptions): Promise<ApiResult> {
+  async upsertEmail(params: EmailContactParams, options?: RequestOptions): Promise<ApiResult> {
     return send(this.config, "POST", "/contacts/email", compact(params), options);
   }
 
-  unsubscribeEmail(email: string, options?: RequestOptions): Promise<ApiResult> {
+  async unsubscribeEmail(email: string, options?: RequestOptions): Promise<ApiResult> {
     return send(this.config, "POST", "/contacts/email/unsubscribe", { email }, options);
   }
 }

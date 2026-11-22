@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { ReachBell, ReachBellError } from "../src";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ReachBell, ReachBellBatchError, ReachBellError } from "../src";
 
 type Call = { url: string; init: RequestInit };
 
@@ -168,5 +168,122 @@ describe("ReachBell", () => {
     new ReachBell({ apiKey: "rb_live_x", fetch: mockFetch().fn });
     expect(spy).toHaveBeenCalledOnce();
     spy.mockRestore();
+  });
+
+  describe("review fixes", () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+      vi.unstubAllGlobals();
+    });
+
+    it("keeps the fetch error as cause and names the underlying reason", async () => {
+      const reason = Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:1"), { code: "ECONNREFUSED" });
+      const original = new TypeError("fetch failed", { cause: reason });
+      const fetch = vi.fn(async () => {
+        throw original;
+      });
+      const err = (await new ReachBell({ apiKey: "rb_secret_x", fetch }).events.track({ name: "x" }).catch((e: unknown) => e)) as ReachBellError;
+      expect(err.status).toBe(0);
+      expect(err.cause).toBe(original);
+      expect(err.message).toBe("Request to /events failed: fetch failed (connect ECONNREFUSED 127.0.0.1:1)");
+    });
+
+    it("adds the cause code when the cause message lacks it", async () => {
+      const fetch = vi.fn(async () => {
+        throw new TypeError("fetch failed", { cause: Object.assign(new Error("getaddrinfo failed"), { code: "ENOTFOUND" }) });
+      });
+      const err = (await new ReachBell({ apiKey: "rb_secret_x", fetch }).request("GET", "/x").catch((e: unknown) => e)) as ReachBellError;
+      expect(err.message).toBe("Request to /x failed: fetch failed (ENOTFOUND: getaddrinfo failed)");
+    });
+
+    it("treats a blank REACHBELL_API_URL as unset", async () => {
+      vi.stubEnv("REACHBELL_API_URL", "   ");
+      const m = mockFetch();
+      await new ReachBell({ apiKey: "rb_secret_x", fetch: m.fn }).request("GET", "/x");
+      expect(m.calls[0].url).toBe("https://api.reachbell.com/x");
+    });
+
+    it("rejects instead of throwing synchronously on bad input", async () => {
+      const rb = client(mockFetch().fn);
+      const calls = [() => rb.campaigns.send({ name: "x" } as never), () => rb.transactional.send(null as never)];
+      for (const call of calls) {
+        let pending: Promise<unknown> | undefined;
+        expect(() => {
+          pending = call();
+        }).not.toThrow();
+        await expect(pending).rejects.toBeInstanceOf(TypeError);
+      }
+    });
+
+    it("reports an unserialisable body as a serialisation error, not a network failure", async () => {
+      const m = mockFetch();
+      const circular: Record<string, unknown> = {};
+      circular.self = circular;
+      for (const body of [{ n: 1n }, circular]) {
+        const err = (await client(m.fn).request("POST", "/x", body).catch((e: unknown) => e)) as ReachBellError;
+        expect(err).toBeInstanceOf(ReachBellError);
+        expect(err.status).toBe(0);
+        expect(err.message).toMatch(/^Could not serialise request body for \/x:/);
+        expect(err.cause).toBeInstanceOf(TypeError);
+      }
+      expect(m.fn).not.toHaveBeenCalled();
+    });
+
+    it("loads and warns without Node globals", async () => {
+      vi.stubGlobal("process", undefined);
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const m = mockFetch();
+      const rb = new ReachBell({ apiKey: "rb_live_x", fetch: m.fn });
+      vi.unstubAllGlobals();
+      await rb.request("GET", "/x");
+      expect(m.calls[0].url).toBe("https://api.reachbell.com/x");
+      expect(warn).toHaveBeenCalledOnce();
+      warn.mockRestore();
+    });
+
+    it("appends query params with & when the path already has a query", async () => {
+      const m = mockFetch();
+      await client(m.fn).request("GET", "/x?a=1", undefined, { query: { b: 2 } });
+      expect(m.calls[0].url).toBe("https://api.test/x?a=1&b=2");
+    });
+
+    it("returns completed chunk results when a later chunk fails", async () => {
+      let n = 0;
+      const fetch = vi.fn(async () => {
+        n += 1;
+        return n === 3 ? new Response('{"message":"rate limited"}', { status: 429 }) : new Response(`{"accepted":${n}}`, { status: 200 });
+      });
+      const events = Array.from({ length: 80 }, (_, i) => ({ name: "e", externalId: `u${i}` }));
+      const err = (await new ReachBell({ apiKey: "rb_secret_x", fetch }).events.trackBatch(events).catch((e: unknown) => e)) as ReachBellBatchError;
+      expect(err).toBeInstanceOf(ReachBellBatchError);
+      expect(err).toBeInstanceOf(ReachBellError);
+      expect(err.results).toEqual([{ accepted: 1 }, { accepted: 2 }]);
+      expect(err.sentCount).toBe(50);
+      expect(err.failedChunk).toBe(2);
+      expect(err.status).toBe(429);
+      expect(err.cause).toBeInstanceOf(ReachBellError);
+      expect(fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it("merges header names case-insensitively, caller over SDK defaults", async () => {
+      const m = mockFetch();
+      const rb = new ReachBell({ apiKey: "rb_secret_x", baseUrl: "https://api.test", fetch: m.fn, headers: { Accept: "text/plain" } });
+      await rb.request("POST", "/x", { a: 1 }, { headers: { "Content-Type": "application/merge-patch+json", "X-API-KEY": "nope" } });
+      const h = m.calls[0].init.headers as Record<string, string>;
+      expect(h["content-type"]).toBe("application/merge-patch+json");
+      expect(h.accept).toBe("text/plain");
+      expect(h["x-api-key"]).toBe("rb_secret_x");
+      expect(Object.keys(h).filter((k) => k.toLowerCase() === "content-type")).toHaveLength(1);
+      expect(Object.keys(h).every((k) => k === k.toLowerCase())).toBe(true);
+    });
+
+    it("shortens a raw non-JSON error body in the message", async () => {
+      const html = `<html><body><h1>502 Bad Gateway</h1>${"<p>nginx padding</p>".repeat(100)}</body></html>`;
+      const err = (await client(mockFetch(502, html).fn).request("GET", "/x").catch((e: unknown) => e)) as ReachBellError;
+      expect(err.message.startsWith("ReachBell returned 502: 502 Bad Gateway")).toBe(true);
+      expect(err.message.length).toBeLessThan(260);
+      expect(err.message).not.toContain("<");
+      expect(err.body).toBe(html);
+    });
   });
 });
