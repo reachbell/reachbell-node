@@ -10,23 +10,28 @@ import type {
   TransactionalWhatsAppParams,
 } from "../types";
 import { compact } from "../utils";
+import { requireObject } from "../helpers/validate";
 
 export class Transactional {
   constructor(private readonly config: HttpConfig) {}
 
-  send(params: TransactionalPushParams, options?: RequestOptions): Promise<TransactionalPushResult> {
+  async send(params: TransactionalPushParams, options?: RequestOptions): Promise<TransactionalPushResult> {
+    requireObject(params, "transactional.send");
     return send(this.config, "POST", "/transactional/send", compact(params), options);
   }
 
-  email(params: TransactionalEmailParams, options?: RequestOptions): Promise<ApiResult> {
+  async email(params: TransactionalEmailParams, options?: RequestOptions): Promise<ApiResult> {
+    requireObject(params, "transactional.email");
     return send(this.config, "POST", "/transactional/email", compact({ ...params }), options);
   }
 
-  sms(params: TransactionalSmsParams, options?: RequestOptions): Promise<ApiResult> {
+  async sms(params: TransactionalSmsParams, options?: RequestOptions): Promise<ApiResult> {
+    requireObject(params, "transactional.sms");
     return send(this.config, "POST", "/transactional/sms", compact(params), options);
   }
 
-  whatsapp(params: TransactionalWhatsAppParams, options?: RequestOptions): Promise<ApiResult> {
+  async whatsapp(params: TransactionalWhatsAppParams, options?: RequestOptions): Promise<ApiResult> {
+    requireObject(params, "transactional.whatsapp");
     return send(this.config, "POST", "/transactional/whatsapp", compact(params), options);
   }
 }

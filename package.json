@@ -1,6 +1,6 @@
 {
   "name": "@reachbell/node",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "ReachBell server SDK for Node.js: transactional push, email, SMS and WhatsApp, events, subscribers, contacts and campaigns.",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -8,12 +8,22 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
-      "require": { "types": "./dist/index.d.cts", "default": "./dist/index.cjs" }
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./package.json": "./package.json"
   },
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "sideEffects": false,
   "scripts": {
     "build": "tsup",
@@ -21,14 +31,32 @@
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run typecheck && npm run test && npm run build"
   },
-  "keywords": ["reachbell", "push notifications", "web push", "transactional", "email", "sms", "whatsapp", "server sdk"],
+  "keywords": [
+    "reachbell",
+    "push notifications",
+    "web push",
+    "transactional",
+    "email",
+    "sms",
+    "whatsapp",
+    "server sdk"
+  ],
   "author": "DotSpheres Technologies Pvt Ltd",
   "license": "MIT",
-  "repository": { "type": "git", "url": "git+https://github.com/reachbell/reachbell-node.git" },
-  "bugs": { "url": "https://github.com/reachbell/reachbell-node/issues" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/reachbell/reachbell-node.git"
+  },
+  "bugs": {
+    "url": "https://github.com/reachbell/reachbell-node/issues"
+  },
   "homepage": "https://docs.reachbell.com/server/node",
-  "engines": { "node": ">=18" },
-  "publishConfig": { "access": "public" },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "tsup": "^8.0.0",

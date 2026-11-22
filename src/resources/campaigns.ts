@@ -2,11 +2,14 @@ import type { HttpConfig } from "../helpers/http";
 import { send } from "../helpers/http";
 import type { ApiResult, CampaignParams, RequestOptions } from "../types";
 import { compact } from "../utils";
+import { requireObject } from "../helpers/validate";
 
 export class Campaigns {
   constructor(private readonly config: HttpConfig) {}
 
-  send(params: CampaignParams, options?: RequestOptions): Promise<ApiResult> {
+  async send(params: CampaignParams, options?: RequestOptions): Promise<ApiResult> {
+    requireObject(params, "campaigns.send");
+    requireObject(params.content, "campaigns.send", "params.content");
     const scheduledAt = params.scheduledAt instanceof Date ? params.scheduledAt.toISOString() : params.scheduledAt;
     const payload = compact({
       ...params,

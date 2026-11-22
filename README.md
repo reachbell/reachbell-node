@@ -42,9 +42,11 @@ Use the secret key (`rb_secret_…`) from **Settings → API keys** and keep it 
 | `campaigns.send(campaign)` | `POST /campaigns/server` |
 | `request(method, path, body?, options?)` | any endpoint |
 
-Failed requests throw `ReachBellError` with `status` (`0` for network errors and timeouts) and the parsed response `body`.
+Every method returns a promise, and every failure (including invalid arguments) rejects it with a `ReachBellError` carrying `status` (`0` for invalid arguments, network errors, timeouts and bodies that cannot be serialised) and the parsed response `body`. For network failures `error.cause` is the original fetch error, and its code (e.g. `ECONNREFUSED`, `ENOTFOUND`) is included in the message. A non-JSON error page is shortened to a one-line snippet in the message; the full text stays in `body`.
 
-Options: `apiKey` (required), `baseUrl` (defaults to `REACHBELL_API_URL` or `https://api.reachbell.com`), `timeoutMs` (default 15000), `fetch`, `headers`.
+`events.trackBatch()` sends chunks one after another. If one fails it stops and rejects with a `ReachBellBatchError` (a `ReachBellError`) whose `results` and `sentCount` cover the chunks already accepted, so you can retry only the rest: `events.slice(err.sentCount)`.
+
+Options: `apiKey` (required), `baseUrl` (defaults to `REACHBELL_API_URL` or `https://api.reachbell.com`; a blank value counts as unset), `timeoutMs` (default 15000; must be a finite number greater than 0, also settable per request), `fetch`, `headers`. Header names are matched case-insensitively and sent in lower case; your headers override the SDK defaults (`accept`, `content-type`, `user-agent`), but not `x-api-key`.
 
 Full documentation: https://docs.reachbell.com/server/node
 
