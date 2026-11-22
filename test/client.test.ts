@@ -102,6 +102,12 @@ describe("ReachBell", () => {
     });
   });
 
+  it("sends a server campaign with top-level title and body", async () => {
+    const m = mockFetch();
+    await client(m.fn).campaigns.send({ name: "Restock", title: "Back", body: "In stock", channel: "push" });
+    expect(json(m.calls[0])).toEqual({ name: "Restock", title: "Back", body: "In stock", channel: "push", segment: {} });
+  });
+
   it("throws ReachBellError with status and body on non-2xx", async () => {
     const m = mockFetch(403, { statusCode: 403, message: "Plan does not include transactionalApi" });
     const err = await client(m.fn)
@@ -220,7 +226,6 @@ describe("ReachBell", () => {
       const rb = client(m.fn);
       const cases: Array<[() => Promise<unknown>, RegExp]> = [
         [() => rb.campaigns.send(null as never), /^ReachBell: campaigns\.send expects params to be an object, got null$/],
-        [() => rb.campaigns.send({ name: "x" } as never), /campaigns\.send expects params\.content to be an object, got undefined/],
         [() => rb.transactional.send(undefined as never), /transactional\.send expects params to be an object, got undefined/],
         [() => rb.transactional.email([] as never), /transactional\.email expects params to be an object, got an array/],
         [() => rb.transactional.sms(null as never), /transactional\.sms/],
@@ -228,6 +233,11 @@ describe("ReachBell", () => {
         [() => rb.events.track(null as never), /events\.track expects event to be an object, got null/],
         [() => rb.events.trackBatch(undefined as never), /events\.trackBatch expects events to be an array, got undefined/],
         [() => rb.events.trackBatch([{ name: "e", externalId: "u" }, null] as never), /events\.trackBatch expects events\[1\] to be an object, got null/],
+        // eslint-disable-next-line no-sparse-arrays
+        [() => rb.events.trackBatch([{ name: "e", externalId: "u" }, , { name: "e", externalId: "u" }] as never), /events\.trackBatch expects events\[1\] to be an object, got undefined/],
+        [() => rb.campaigns.send({ name: "c" } as never), /campaigns\.send expects params\.content to be an object, or params\.title and params\.body to be non-empty strings; got content undefined, title undefined, body undefined/],
+        [() => rb.campaigns.send({ name: "c", title: "t" } as never), /got content undefined, title a string, body undefined/],
+        [() => rb.campaigns.send({ name: "c", content: "x" } as never), /campaigns\.send expects params\.content to be an object, got a string/],
         [() => rb.subscribers.identify(null as never), /subscribers\.identify/],
         [() => rb.subscribers.tag(undefined as never), /subscribers\.tag/],
         [() => rb.subscribers.untag(undefined as never), /subscribers\.untag/],
@@ -258,8 +268,22 @@ describe("ReachBell", () => {
       const m = mockFetch();
       const err = (await client(m.fn).request("GET", "/x", undefined, { timeoutMs: -5 }).catch((e: unknown) => e)) as ReachBellError;
       expect(err).toBeInstanceOf(ReachBellError);
-      expect(err.message).toMatch(/timeoutMs to be a finite number of milliseconds greater than 0, got -5/);
+      expect(err.message).toMatch(/timeoutMs to be a finite number of milliseconds greater than 0 and at most 2147483647, got -5/);
       expect(m.fn).not.toHaveBeenCalled();
+      // AbortSignal.timeout() only takes 32-bit delays: reject anything larger.
+      for (const timeoutMs of [2_147_483_648, 2_147_483_647.5, Number.MAX_SAFE_INTEGER]) {
+        expect(() => new ReachBell({ apiKey: "rb_secret_x", timeoutMs })).toThrow(RangeError);
+        expect(() => new ReachBell({ apiKey: "rb_secret_x", timeoutMs })).toThrow(/at most 2147483647, got /);
+        const tooBig = (await client(m.fn).request("GET", "/x", undefined, { timeoutMs }).catch((e: unknown) => e)) as ReachBellError;
+        expect(tooBig).toBeInstanceOf(ReachBellError);
+        expect(tooBig.status).toBe(0);
+        expect(tooBig.message).toMatch(/expects timeoutMs to be .* at most 2147483647, got /);
+      }
+      expect(m.fn).not.toHaveBeenCalled();
+      expect(() => new ReachBell({ apiKey: "rb_secret_x", timeoutMs: 2_147_483_647, fetch: m.fn })).not.toThrow();
+      await client(m.fn).request("GET", "/x", undefined, { timeoutMs: 2_147_483_647 });
+      expect(m.fn).toHaveBeenCalledOnce();
+      m.fn.mockClear();
       await client(m.fn).request("GET", "/x", undefined, { timeoutMs: 2500 });
       expect(m.fn).toHaveBeenCalledOnce();
     });

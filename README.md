@@ -44,9 +44,11 @@ Use the secret key (`rb_secret_…`) from **Settings → API keys** and keep it 
 
 Every method returns a promise, and every failure (including invalid arguments) rejects it with a `ReachBellError` carrying `status` (`0` for invalid arguments, network errors, timeouts and bodies that cannot be serialised) and the parsed response `body`. For network failures `error.cause` is the original fetch error, and its code (e.g. `ECONNREFUSED`, `ENOTFOUND`) is included in the message. A non-JSON error page is shortened to a one-line snippet in the message; the full text stays in `body`.
 
+`campaigns.send()` takes the message either as a `content` object (`{ name, content: { title, body, clickUrl } }`) or as top-level strings (`{ name, title, body }`), matching what the API accepts. One of the two is required.
+
 `events.trackBatch()` sends chunks one after another. If one fails it stops and rejects with a `ReachBellBatchError` (a `ReachBellError`) whose `results` and `sentCount` cover the chunks already accepted, so you can retry only the rest: `events.slice(err.sentCount)`.
 
-Options: `apiKey` (required), `baseUrl` (defaults to `REACHBELL_API_URL` or `https://api.reachbell.com`; a blank value counts as unset), `timeoutMs` (default 15000; must be a finite number greater than 0, also settable per request), `fetch`, `headers`. Header names are matched case-insensitively and sent in lower case; your headers override the SDK defaults (`accept`, `content-type`, `user-agent`), but not `x-api-key`.
+Options: `apiKey` (required), `baseUrl` (defaults to `REACHBELL_API_URL` or `https://api.reachbell.com`; a blank value counts as unset), `timeoutMs` (default 15000; must be a finite number greater than 0 and at most 2147483647, about 24.8 days, the largest delay `AbortSignal.timeout()` accepts; also settable per request), `fetch`, `headers`. Header names are matched case-insensitively and sent in lower case; your headers override the SDK defaults (`accept`, `content-type`, `user-agent`), but not `x-api-key`.
 
 Full documentation: https://docs.reachbell.com/server/node
 

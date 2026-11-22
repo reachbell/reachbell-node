@@ -15,7 +15,12 @@
 
 ### Batches
 
+- `events.trackBatch()` also validates holes in sparse arrays (`[a, , b]`), rejecting with `events.trackBatch expects events[1] to be an object, got undefined` before anything is sent.
 - `events.trackBatch()` rejects with the new `ReachBellBatchError` (a subclass of `ReachBellError`, exported from the package) when a chunk fails. It carries `results` (responses of the chunks already accepted), `sentCount` (events in those chunks, so you can retry with `events.slice(err.sentCount)`), `failedChunk`, and the failing chunk's `status`, `body` and `cause`. In 1.0.0 the results of earlier chunks were lost.
+
+### Campaigns
+
+- `campaigns.send()` accepts the message as top-level `title` and `body` strings as well as a `content` object, matching the API's `POST /campaigns/server` body. In 1.0.0 `content` was always required. Passing neither rejects with `campaigns.send expects params.content to be an object, or params.title and params.body to be non-empty strings; …`. `CampaignParams` is now a union of the two shapes.
 
 ### Headers
 
@@ -23,7 +28,7 @@
 
 ### Options
 
-- `timeoutMs` (client option and per-request option) must be a finite number of milliseconds greater than `0`. The constructor throws a `RangeError` for `0`, negative, `NaN`, `Infinity` or non-numbers; an invalid per-request `timeoutMs` rejects with a `ReachBellError`. Fractional values are rounded up.
+- `timeoutMs` (client option and per-request option) must be a finite number of milliseconds greater than `0` and at most `2147483647` (about 24.8 days; `AbortSignal.timeout()` cannot take a longer delay). The constructor throws a `RangeError` for `0`, negative, too large, `NaN`, `Infinity` or non-numbers; an invalid per-request `timeoutMs` rejects with a `ReachBellError`. Fractional values are rounded up.
 - A blank or whitespace `baseUrl` option or `REACHBELL_API_URL` counts as unset, and the default URL is used.
 - `request()` with a path that already has a query string appends `options.query` with `&` rather than a second `?`.
 - The SDK loads on runtimes without Node globals (edge runtimes, workers): `process.env` and `process.emitWarning` are only used when present, falling back to `console.warn` for the public-key warning.

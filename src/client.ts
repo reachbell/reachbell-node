@@ -8,7 +8,7 @@ import { Subscribers } from "./resources/subscribers";
 import { Transactional } from "./resources/transactional";
 import type { HttpMethod, ReachBellOptions, RequestOptions } from "./types";
 import { nonBlank, trimSlash } from "./utils";
-import { isValidTimeout } from "./helpers/validate";
+import { isValidTimeout, TIMEOUT_RANGE } from "./helpers/validate";
 
 export class ReachBell {
   readonly transactional: Transactional;
@@ -29,7 +29,7 @@ export class ReachBell {
 
     const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     if (!isValidTimeout(timeoutMs)) {
-      throw new RangeError(`ReachBell: timeoutMs must be a finite number of milliseconds greater than 0, got ${String(timeoutMs)}`);
+      throw new RangeError(`ReachBell: timeoutMs must be ${TIMEOUT_RANGE}, got ${String(timeoutMs)}`);
     }
 
     this.config = {

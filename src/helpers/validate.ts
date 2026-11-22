@@ -25,9 +25,18 @@ export function requireString(value: unknown, method: string, name: string): voi
   }
 }
 
-/** Whether `value` is a usable timeout: a finite number of milliseconds greater than 0. */
+/**
+ * Largest accepted timeout: AbortSignal.timeout() takes a 32-bit signed
+ * millisecond delay (about 24.8 days); larger values throw or fire at once.
+ */
+export const MAX_TIMEOUT_MS = 2_147_483_647;
+
+/** Describes the accepted range, for error messages. */
+export const TIMEOUT_RANGE = `a finite number of milliseconds greater than 0 and at most ${MAX_TIMEOUT_MS}`;
+
+/** Whether `value` is a usable timeout: a finite number of milliseconds in (0, MAX_TIMEOUT_MS]. */
 export function isValidTimeout(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value) && value > 0;
+  return typeof value === "number" && Number.isFinite(value) && value > 0 && value <= MAX_TIMEOUT_MS;
 }
 
 export function describe(value: unknown): string {

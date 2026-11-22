@@ -2,7 +2,7 @@ import { SDK_VERSION } from "../constants";
 import type { FetchLike, HttpMethod, RequestOptions } from "../types";
 import { appendQuery, describeError, mergeHeaders, messageFrom, parseBody } from "../utils";
 import { ReachBellError } from "./error";
-import { describe, invalidArgument, isValidTimeout } from "./validate";
+import { describe, invalidArgument, isValidTimeout, TIMEOUT_RANGE } from "./validate";
 
 export interface HttpConfig {
   apiKey: string;
@@ -22,7 +22,7 @@ export async function send<T>(
   if (typeof path !== "string") throw invalidArgument("request", `expects path to be a string, got ${describe(path)}`);
   const timeoutMs = options.timeoutMs ?? config.timeoutMs;
   if (!isValidTimeout(timeoutMs)) {
-    throw invalidArgument("request", `expects timeoutMs to be a finite number of milliseconds greater than 0, got ${String(timeoutMs)}`);
+    throw invalidArgument("request", `expects timeoutMs to be ${TIMEOUT_RANGE}, got ${String(timeoutMs)}`);
   }
   const url = appendQuery(`${config.baseUrl}${path.startsWith("/") ? path : `/${path}`}`, options.query);
 

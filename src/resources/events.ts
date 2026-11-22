@@ -23,7 +23,8 @@ export class Events {
   async trackBatch(events: EventParams[], options?: RequestOptions): Promise<ApiResult[]> {
     // Validate every event up front so a bad entry fails before any chunk is sent.
     requireArray(events, "events.trackBatch", "events");
-    events.forEach((event, i) => requireObject(event, "events.trackBatch", `events[${i}]`));
+    // A plain loop (not forEach) so holes in a sparse array are checked too.
+    for (let i = 0; i < events.length; i++) requireObject(events[i], "events.trackBatch", `events[${i}]`);
     const results: ApiResult[] = [];
     let sent = 0;
     for (let i = 0; i < events.length; i += MAX_EVENT_BATCH) {

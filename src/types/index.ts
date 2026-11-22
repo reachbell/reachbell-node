@@ -100,13 +100,20 @@ export interface CampaignSegment {
   [key: string]: unknown;
 }
 
-export interface CampaignParams {
+interface CampaignBase {
   name: string;
-  content: CampaignContent;
   channel?: string;
   segment?: CampaignSegment;
   channelOverrides?: Record<string, unknown>;
   scheduledAt?: string | Date;
 }
+
+/**
+ * A server campaign. Give the message either as a `content` object or as
+ * top-level `title` and `body` strings (the API accepts both shapes).
+ */
+export type CampaignParams =
+  | (CampaignBase & { content: CampaignContent; title?: string; body?: string })
+  | (CampaignBase & { content?: undefined; title: string; body: string });
 
 export type ApiResult = Record<string, unknown>;
